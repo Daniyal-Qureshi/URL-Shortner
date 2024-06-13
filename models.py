@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
+import datetime
 
 Base = declarative_base()
 
@@ -14,7 +15,9 @@ class User(Base):
 class Link(Base):
     __tablename__ = "links"
     id = Column(Integer, primary_key=True, index=True)
-    bitlink = Column(String, index=True)
+    bitlink = Column(String, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    long_url = Column(String, nullable=False)
     owner = relationship("User", back_populates="links")
 
