@@ -9,6 +9,7 @@ class Link(BaseModel):
     user_id: int
     created_at: datetime
     long_url: str
+    title: str
 
     class Config:
         from_attributes = True

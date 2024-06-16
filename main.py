@@ -191,6 +191,7 @@ async def get_user_links(
 
 
 class ShortenLinkRequest(BaseModel):
+    title: str
     long_url: str
     domain: Optional[str] = "bit.ly"
     group_guid: Optional[str] = ""
@@ -366,12 +367,15 @@ async def shorten_link(
         raise HTTPException(status_code=404, detail="User not found")
 
     params = request.dict()
+    title = params.pop("title")
     try:
         response = call_bitly_api("shorten", params=params, method="POST")
         bitlink = response["link"]
 
         # Store the shortened link in the database with the user as the owner
-        new_link = LinkModel(bitlink=bitlink, owner=user, long_url=request.long_url)
+        new_link = LinkModel(
+            bitlink=bitlink, owner=user, long_url=request.long_url, title=title
+        )
         db.add(new_link)
         db.commit()
         db.refresh(new_link)
