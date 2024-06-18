@@ -51,3 +51,20 @@ class ClicksSummary(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ClicksSummaryByCountryMetrics(BaseModel):
+    clicks: int
+    value: str
+
+    class Config:
+        from_attributes = True
+
+class ClicksSummaryByCountry(BaseModel):
+    unit_reference: datetime
+    metrics: List[ClicksSummaryByCountryMetrics]
+    units: int
+    unit: str
+    facet: str
+
+    class Config:
+        from_attributes = True

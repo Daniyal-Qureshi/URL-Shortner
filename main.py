@@ -18,6 +18,7 @@ from Schemas import (
     Link as LinkSchema,
     TotalClicksSummary,
     ClicksSummary,
+    ClicksSummaryByCountry,
 )
 
 app = FastAPI()
@@ -323,7 +324,7 @@ async def get_clicks_summary(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/bitlinks/{bitlink}/countries")
+@app.get("/api/bitlinks/{bitlink}/countries", response_model=ClicksSummaryByCountry)
 async def get_bitlink_countries(
     bitlink: str,
     current_username: str = Depends(get_current_user),
@@ -332,6 +333,7 @@ async def get_bitlink_countries(
     unit: str = Query("day", enum=["minute", "hour", "day", "week", "month"]),
     units: int = Query(-1),
     size: Optional[int] = Query(50),
+    unit_reference: Optional[str] = None,
 ):
     user = db.query(UserModel).filter(UserModel.username == current_username).first()
     if not user:
@@ -347,7 +349,12 @@ async def get_bitlink_countries(
     domain = db_link.bitlink.split("/")[2]
     hash = db_link.bitlink.split("/")[3]
 
-    params = {"unit": unit, "units": units, "size": size}
+    params = {
+        "unit": unit,
+        "units": units,
+        "size": size,
+        "unit_reference": unit_reference,
+    }
     try:
         return call_bitly_api(f"bitlinks/{domain}/{hash}/countries", params=params)
     except Exception as e:
