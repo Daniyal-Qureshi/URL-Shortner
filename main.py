@@ -104,6 +104,8 @@ async def authenticate(
         user = db.query(UserModel).filter(UserModel.username == username).first()
         if user:
             token_payload = {"username": username}
+            user.external_api_token = external_api_response["access_token"]
+            db.commit()
             token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
             return {
                 "id": user.id,
@@ -164,6 +166,40 @@ async def read_users_me(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+
+@app.get("/api/user/details", response_model=dict)
+async def get_user_details(
+    current_username: str = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    user = db.query(UserModel).filter(UserModel.username == current_username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    access_token = user.external_api_token
+    if not access_token:
+        raise HTTPException(status_code=400, detail="User does not have an access token")
+
+    url = "https://flex-api.sharetribe.com/v1/api/current_user/show"
+    headers = {"Authorization": f"Bearer {access_token}",
+                "Accept": "application/json"}
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        user_details = response.json()
+        return user_details
+    except HTTPError as http_err:
+        raise HTTPException(
+            status_code=http_err.response.status_code, detail=http_err.response.text
+        )
+    except JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Invalid JSON response from server")
+    except KeyError:
+        raise HTTPException(
+            status_code=500, detail="Error fetching user details"
+        )
 
 
 from sqlalchemy.orm import joinedload
@@ -462,7 +498,7 @@ async def get_bitlinks_by_group(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-if __name__ == "__main__":
-    import uvicorn
+# if __name__ == "__main__":
+#     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
