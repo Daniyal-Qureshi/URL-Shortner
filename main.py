@@ -19,6 +19,7 @@ from Schemas import (
     TotalClicksSummary,
     ClicksSummary,
     ClicksSummaryByCountry,
+    ShareTribeUserResponse,
 )
 
 app = FastAPI()
@@ -168,8 +169,7 @@ async def read_users_me(
     return user
 
 
-
-@app.get("/api/user/details", response_model=dict)
+@app.get("/api/user/details", response_model=ShareTribeUserResponse)
 async def get_user_details(
     current_username: str = Depends(get_current_user), db: Session = Depends(get_db)
 ):
@@ -179,14 +179,19 @@ async def get_user_details(
 
     access_token = user.external_api_token
     if not access_token:
-        raise HTTPException(status_code=400, detail="User does not have an access token")
+        raise HTTPException(
+            status_code=400, detail="User does not have an access token"
+        )
 
     url = "https://flex-api.sharetribe.com/v1/api/current_user/show"
-    headers = {"Authorization": f"Bearer {access_token}",
-                "Accept": "application/json"}
+    headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
+    query = {
+        "include": "profileImage",
+        "fields.image": "variants.square-small,variants.square-small2x",
+    }
 
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, params=query)
         response.raise_for_status()
         user_details = response.json()
         return user_details
@@ -197,9 +202,7 @@ async def get_user_details(
     except JSONDecodeError:
         raise HTTPException(status_code=500, detail="Invalid JSON response from server")
     except KeyError:
-        raise HTTPException(
-            status_code=500, detail="Error fetching user details"
-        )
+        raise HTTPException(status_code=500, detail="Error fetching user details")
 
 
 from sqlalchemy.orm import joinedload

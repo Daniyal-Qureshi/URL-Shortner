@@ -68,3 +68,43 @@ class ClicksSummaryByCountry(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ShareTribeUserAttributesProfile(BaseModel):
+    displayName: str
+    abbreviatedName: str
+
+class ShareTribeUserAttributes(BaseModel):
+    email: str
+    profile: ShareTribeUserAttributesProfile
+
+class ShareTribeUser(BaseModel):
+    id: str
+    type: str
+    attributes: ShareTribeUserAttributes
+
+    class Config:
+        from_attributes = True
+
+class ShareTribeIncludedImageAttributesVariant(BaseModel):
+    url: str
+    width: int
+    height: int
+
+class ShareTribeIncludedImageAttributes(BaseModel):
+    variants: dict[str, ShareTribeIncludedImageAttributesVariant]
+
+class ShareTribeIncludedImage(BaseModel):
+    id: str
+    type: str
+    attributes: ShareTribeIncludedImageAttributes
+
+    class Config:
+        from_attributes = True
+
+class ShareTribeUserResponse(BaseModel):
+    data: ShareTribeUser
+    included: List[ShareTribeIncludedImage] | None = None
+
+    class Config:
+        from_attributes = True
