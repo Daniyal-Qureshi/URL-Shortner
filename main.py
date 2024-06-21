@@ -413,6 +413,7 @@ async def shorten_link(
         raise HTTPException(status_code=404, detail="User not found")
 
     params = request.dict()
+    params["long_url"] = f'{params["long_url"]}?user_id={user.id}'
     title = params.pop("title")
     try:
         response = call_bitly_api("shorten", params=params, method="POST")
