@@ -262,9 +262,32 @@ def call_bitly_api(endpoint: str, params: dict = {}, method: str = "GET"):
 
 
 @app.delete("/api/bitlinks/{bitlink}")
-async def delete_bitlink(bitlink: str):
+async def delete_bitlink(
+    bitlink: str,
+    current_username: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = db.query(UserModel).filter(UserModel.username == current_username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db_link = (
+        db.query(LinkModel)
+        .filter(LinkModel.id == bitlink, LinkModel.owner == user)
+        .first()
+    )
+    if not db_link:
+        raise HTTPException(status_code=404, detail="Link not found")
+    # extract domain and hash from bitlink
+    domain = db_link.bitlink.split("/")[2]
+    hash = db_link.bitlink.split("/")[3]
+
     try:
-        return call_bitly_api(f"bitlinks/{bitlink}", method="DELETE")
+        res = call_bitly_api(f"bitlinks/{domain}/{hash}", method="DELETE")
+        db.delete(db_link)
+        db.commit()
+        return res
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
