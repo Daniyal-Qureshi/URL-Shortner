@@ -50,7 +50,7 @@ logger.addHandler(fh)
 logger.addHandler(ch)
 
 
-DATABASE_URL = "sqlite:///./test4.db"
+DATABASE_URL = "sqlite:///./main.db"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
