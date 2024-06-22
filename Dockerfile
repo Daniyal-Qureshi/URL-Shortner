@@ -1,12 +1,11 @@
-FROM python:3.10
+FROM python:3.11
 
 WORKDIR /src
 
-ADD ./ /src
+COPY ./requirements.txt /src/requirements.txt
 
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /src/requirements.txt
 
-EXPOSE 8000 
+COPY . /src
 
-CMD ["python", "main.py"]
+CMD ["fastapi", "run", "main.py", "--proxy-headers", "--port", "80"]
