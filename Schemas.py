@@ -1,7 +1,18 @@
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime
+from typing import List, Optional
+from datetime import datetime
 
+class UniqueClick(BaseModel):
+    id: int
+    ip: str
+    timestamp: datetime
+    user_agent: str
+    link_id: int
+    
+    class Config:
+        from_attributes = True
 
 class Link(BaseModel):
     id: int
@@ -11,6 +22,8 @@ class Link(BaseModel):
     long_url: str
     title: str
 
+    expired: bool
+    
     class Config:
         from_attributes = True
 

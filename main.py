@@ -1,18 +1,16 @@
-from fastapi import FastAPI, HTTPException, Depends, status, Query, Response
+from fastapi import FastAPI, HTTPException, Depends, status, Query, Response, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from jose import JWTError, jwt
+from fastapi.responses import RedirectResponse
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from typing import Optional, List
-import requests
-import logging
-from pydantic import BaseModel
+from sqlalchemy.orm import sessionmaker, Session
 from requests.exceptions import HTTPError, JSONDecodeError
-from sqlalchemy.orm import Session
-
-# Database setup
-from models import Base, User as UserModel, Link as LinkModel
+from typing import Optional, List
+from pydantic import BaseModel
+from jose import JWTError, jwt
+from datetime import datetime, timedelta, timezone
+from helper import get_ip_info
+from models import Base, User as UserModel, Link as LinkModel, UniqueClick as ClickModel
 from Schemas import (
     User as UserSchema,
     Link as LinkSchema,
@@ -21,6 +19,9 @@ from Schemas import (
     ClicksSummaryByCountry,
     ShareTribeUserResponse,
 )
+import logging
+import requests
+import os
 
 app = FastAPI()
 
@@ -53,7 +54,9 @@ logger.addHandler(ch)
 DATABASE_URL = "sqlite:///./main.db"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+REDIRECT_URL = os.getenv("REDIRECT_URL", "http://0.0.0.0:8000")
 
+logger.log(logging.DEBUG, f"Redirect URL: {REDIRECT_URL}")
 Base.metadata.create_all(bind=engine)
 
 
@@ -276,21 +279,15 @@ async def delete_bitlink(
         .filter(LinkModel.id == bitlink, LinkModel.owner == user)
         .first()
     )
-    if not db_link:
+    if not db_link or db_link.expired:
         raise HTTPException(status_code=404, detail="Link not found")
-    # extract domain and hash from bitlink
-    domain = db_link.bitlink.split("/")[2]
-    hash = db_link.bitlink.split("/")[3]
+    
+    db_link.expired = True
+    db.commit()
+    
+    return {"message": "Link has been deleted"}
 
-    try:
-        res = call_bitly_api(f"bitlinks/{domain}/{hash}", method="DELETE")
-        db.delete(db_link)
-        db.commit()
-        return res
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+  
 
 @app.get("/api/bitlinks/{bitlink}", response_model=LinkSchema)
 async def get_bitlink(
@@ -435,17 +432,16 @@ async def shorten_link(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    #  "long_url":"http://0.0.0.0:8000/api/track/?url=https://airforshare.com"
     params = request.dict()
-    params["long_url"] = f'{params["long_url"]}?user_id={user.id}'
     title = params.pop("title")
+    long_url = params["long_url"]
+    params["long_url"] = f'{REDIRECT_URL}/api/track?url={long_url}&user_id={user.id}'
     try:
         response = call_bitly_api("shorten", params=params, method="POST")
-        bitlink = response["link"]
-
-        # Store the shortened link in the database with the user as the owner
-        new_link = LinkModel(
-            bitlink=bitlink, owner=user, long_url=request.long_url, title=title
-        )
+        bitlink = response['link']
+        
+        new_link = LinkModel(bitlink=bitlink, owner=user, expired=False, long_url = long_url, title = title)
         db.add(new_link)
         db.commit()
         db.refresh(new_link)
@@ -453,7 +449,6 @@ async def shorten_link(
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/api/groups")
 async def get_groups():
@@ -524,8 +519,62 @@ async def get_bitlinks_by_group(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Endpoint to track IP and redirect
+@app.get("/api/track")
+async def track_and_redirect(url: str, request: Request, db: Session = Depends(get_db)):
+    client_ip = request.client.host
+    user_agent = request.headers.get("user-agent")    
+    logger.info(f"Client Public IP: {client_ip}")
+    user_id = request.query_params.get("user_id")
+    link = db.query(LinkModel).filter(LinkModel.long_url == url, LinkModel.user_id == user_id).first()
+    
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    if link.expired:
+        raise HTTPException(status_code=404, detail="Link has expired")
+    
+    time_threshold = datetime.now(timezone.utc) - timedelta(hours=24)
+    existing_click = db.query(ClickModel).filter(
+        ClickModel.ip == client_ip,
+        ClickModel.user_agent == user_agent,
+        ClickModel.timestamp >= time_threshold,
+        ClickModel.link_id == link.id
+    ).first()
 
-# if __name__ == "__main__":
-#     import uvicorn
+    if not existing_click:
+        link_id = link.id
+        new_click = ClickModel(ip=client_ip, user_agent=user_agent, link_id=link_id)
+        db.add(new_click)
+        db.commit()
+        db.refresh(new_click)
 
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
+    return RedirectResponse(url=url)
+
+@app.get("/api/bitlinks/{link_id}/clicks/unique")
+async def get_unique_clicks(link_id: str, db: Session = Depends(get_db)): 
+    unique_clicks = db.query(ClickModel).filter(ClickModel.link_id == link_id).all()
+    
+    unique_clicks_info = []
+    for click in unique_clicks:
+        ip_info = get_ip_info(click.ip)
+        unique_clicks_info.append({
+            "ip": click.ip,
+            "timestamp": click.timestamp,
+            "user_agent": click.user_agent,
+            **ip_info
+        })
+    
+    return {
+        "unique_clicks": unique_clicks_info,
+        "total_unique_clicks": len(unique_clicks_info)
+    }
+
+
+@app.get("/")
+def index():
+    return { "message": "Welcome to Microsh URL Shortener" }
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host='0.0.0.0', port=8000)
