@@ -22,7 +22,7 @@ class Link(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.now)
     title = Column(String, nullable=False)
-    long_url = Column(String, nullable=False)
+    short_url = Column(String, index=True, unique=True)
     owner = relationship("User", back_populates="links")
     expired = Column(Boolean, default=False)
 

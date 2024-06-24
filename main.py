@@ -10,8 +10,8 @@ from pydantic import BaseModel
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from helper import get_ip_info
-from models import Base, User as UserModel, Link as LinkModel, UniqueClick as ClickModel
-from Schemas import (
+from models.models import Base, User as UserModel, Link as LinkModel, UniqueClick as ClickModel
+from schemas.Schemas import (
     User as UserSchema,
     Link as LinkSchema,
     TotalClicksSummary,
@@ -573,7 +573,7 @@ async def get_unique_clicks(link_id: str, db: Session = Depends(get_db)):
 
 @app.get("/")
 def index():
-    return { "message": "Welcome to Microsh URL Shortener" }
+    return { "message": "Welcome to Bitly URL Shortener" }
 
 
 if __name__ == "__main__":
