@@ -4,11 +4,5 @@ venv/
 *.log
 *.db
 
-<<<<<<< HEAD
 .vscode
 env/
-=======
-env/
-
-.vscode
->>>>>>> 368ea37 (feat: implemented custom url shortner)

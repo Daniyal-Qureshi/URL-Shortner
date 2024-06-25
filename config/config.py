@@ -7,10 +7,10 @@ import os
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/v1/auth/token")
-SECRET_KEY = "your-secret-key"
-ALGORITHM = "HS256"
+SECRET_KEY = os.getenv("SECRET_KEY", "secret")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
-DATABASE_URL = "sqlite:///./main.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 REDIRECT_URL = os.getenv("REDIRECT_URL", "http://localhost:8000/")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

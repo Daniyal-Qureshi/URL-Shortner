@@ -20,7 +20,7 @@ class Link(Base):
     bitlink = Column(String, index=True, nullable=False)
     long_url = Column(String, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=datetime.utcnow)
     title = Column(String, nullable=False)
     short_url = Column(String, index=True, unique=True)
     owner = relationship("User", back_populates="links")
@@ -30,6 +30,6 @@ class UniqueClick(Base):
     __tablename__ = 'clicks'
     id = Column(Integer, primary_key=True, index=True)
     ip = Column(String)
-    timestamp = Column(DateTime, default=datetime.now)
+    timestamp = Column(DateTime, default=datetime.utcnow)
     user_agent = Column(String)
     link_id = Column(Integer, ForeignKey('links.id'))
