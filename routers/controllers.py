@@ -2,21 +2,21 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query, Response, 
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from fastapi import BackgroundTasks
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
 import requests
 from sqlalchemy import  func
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
-from utils.helper import get_ip_info, get_current_user, get_db, create_unique_short_url, get_db_user
+from utils.helper import *
 from utils.click_utils import *
-from models.models import User as UserModel, Link as LinkModel, UniqueClick as ClickModel
+from models.models import User as UserModel, Link as LinkModel, Click as ClickModel
 from requests.exceptions import HTTPError, JSONDecodeError
 from sqlalchemy.orm import joinedload
 from schemas.Schemas import (
     User as UserSchema,
     Link as LinkSchema,
-    TotalClicksSummary,
     ClicksSummary,
     ClicksSummaryByCountry,
     ShareTribeUserResponse,
@@ -27,27 +27,30 @@ router = APIRouter()
 class ShortenLinkRequest(BaseModel):
     title: str
     long_url: str
+    custom_back_half: Optional[str] = None
 
 
 @router.get("/{short_url}")
 async def redirect_to_long_url(
     short_url: str,
     request: Request,
-    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
 ):
-    # bitlink = f"{REDIRECT_URL}/{short_link}"
     link = db.query(LinkModel).filter(LinkModel.short_url == short_url).first()
-    long_url = link.long_url
     if link is None:
         raise HTTPException(status_code=404, detail="Link not found")
     if link.expired:
         raise HTTPException(status_code=410, detail="Link has expired")
 
+    long_url = link.long_url
     user_agent = request.headers.get("user-agent", "unknown")
-    ip = request.client.host
-    click = ClickModel(link_id=link.id, user_agent=user_agent, ip=ip)
+    ip_address = request.client.host
+    click = ClickModel(link_id=link.id, user_agent=user_agent, ip=ip_address)
     db.add(click)
     db.commit()
+    background_tasks.add_task(write_ip_info, click.id, ip_address, db)
+    
     if not long_url.startswith(("http://", "https://")):
         long_url = "http://" + long_url
     return RedirectResponse(url=long_url)
@@ -208,7 +211,15 @@ async def shorten_link(
     
     title = request.title
     long_url = request.long_url
-    short_url = create_unique_short_url(db)
+    
+    if request.custom_back_half:
+        short_url = request.custom_back_half
+        if is_link_exist(db, short_url):
+            raise HTTPException(status_code=409, detail="Custom short URL already exists")
+    
+    else:
+        short_url = create_unique_short_url(db)
+    
     bitlink = f'{REDIRECT_URL}/{short_url}'
 
     new_link = LinkModel(
@@ -266,10 +277,7 @@ async def get_unique_clicks(
     if not db_link or db_link.expired:
         raise HTTPException(status_code=404, detail="Link not found")
 
-    # Query all clicks for the link
     clicks = db.query(ClickModel).filter(ClickModel.link_id == link_id).all()
-
-    # Use a dictionary to store unique combinations of (ip, user_agent) and their latest timestamp
     unique_combinations = {}
     unique_clicks_info = []
     
@@ -277,11 +285,11 @@ async def get_unique_clicks(
 
     for click in clicks:
         combination = (click.ip, click.user_agent)
+        ip_info = get_click_ip_info(click.id, db)
         if combination not in unique_combinations:
             # Add the combination to the dictionary with its timestamp
             unique_combinations[combination] = click.timestamp
-            
-            ip_info = get_ip_info(click.ip)
+                
             unique_clicks_info.append({
                 "ip": click.ip,
                 "user_agent": click.user_agent,
@@ -294,7 +302,6 @@ async def get_unique_clicks(
                 # Update the timestamp in the dictionary to the latest click's timestamp
                 unique_combinations[combination] = click.timestamp
                 
-                ip_info = get_ip_info(click.ip)
                 unique_clicks_info.append({
                     "ip": click.ip,
                     "user_agent": click.user_agent,
@@ -313,14 +320,13 @@ async def get_unique_clicks(
 async def get_clicks(
     link_id: str,
     response: Response,
-    current_username: str = Depends(get_current_user),
-    db: Session = Depends(get_db),
     token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
     unit: str = Query("day", enum=["minute", "hour", "day", "week", "month"]),
     units: int = Query(-1),
     unit_reference: Optional[str] = None,
 ):
-    user = get_db_user(username=current_username, db=db)
+    user = get_db_user(token=token, db=db)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 

@@ -4,10 +4,11 @@ from jose import JWTError, jwt
 from config.config import SECRET_KEY, ALGORITHM, oauth2_scheme, DATABASE_URL, SessionLocal
 import string
 import random
-from models.models import Link, User
+from models.models import Link, User, IPInfo as IPInfoModel
 from sqlalchemy.orm import Session
+from config.config import logger
 
-def get_ip_info(ip_address):
+def get_ip_info_API(ip_address):
     url = f"https://ipinfo.io/{ip_address}/json"
     response = requests.get(url)
     if response.status_code == 200:
@@ -21,11 +22,46 @@ def get_ip_info(ip_address):
             "org": data.get("org"),
             "postal": data.get("postal"),
             "timezone": data.get("timezone"),
-            "readme": data.get("readme")
         }
     else:
         return {"error": "Unable to retrieve data"}
-    
+
+def write_ip_info(click_id, ip, db: Session):
+    try:
+        ip_response = get_ip_info_API(ip)
+        ip_info = IPInfoModel(
+            ip=ip,
+            click_id=click_id, 
+            country=ip_response['country'],
+            city=ip_response['city'],
+            region=ip_response['region'],
+            loc = ip_response['loc'],
+            timezone=ip_response['timezone'],
+            org=ip_response['org'],
+            postal=ip_response['postal']
+            )
+        db.add(ip_info)
+        db.commit()
+        db.close()
+        logger.info(f"IPInfo created successfully for click_id {click_id} with ip {ip}")
+    except Exception as e:
+        logger.info(f"Error creating IPInfo for click_id {click_id} with ip {ip}. Error: {e}")
+
+
+def get_click_ip_info(click_id, db: Session):
+    ip_info = db.query(IPInfoModel).filter(IPInfoModel.click_id == click_id).first()
+    if not ip_info:
+        return {"error": "No IP info found"}
+    return {
+        "ip": ip_info.ip,
+        "city": ip_info.city,
+        "region": ip_info.region,
+        "country": ip_info.country,
+        "loc": ip_info.loc,
+        "org": ip_info.org,
+        "postal": ip_info.postal,
+        "timezone": ip_info.timezone,
+    }
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -55,6 +91,10 @@ def get_db():
         db.close()
 
 
+def is_link_exist(db, short_url):
+    return db.query(Link).filter(Link.short_url == short_url).first()
+
+
 def generate_short_url(length=7):
     characters = string.ascii_letters + string.digits
     return ''.join(random.choice(characters) for i in range(length))
@@ -66,7 +106,7 @@ def create_unique_short_url(db: Session):
 
     while tries < max_tries:
         short_url = generate_short_url(url_length)
-        existing_link = db.query(Link).filter(Link.short_url == short_url).first()
+        existing_link = is_link_exist(db, short_url)
 
         if not existing_link:
             return short_url

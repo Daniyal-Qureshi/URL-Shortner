@@ -26,10 +26,24 @@ class Link(Base):
     owner = relationship("User", back_populates="links")
     expired = Column(Boolean, default=False)
 
-class UniqueClick(Base):
+class Click(Base):
     __tablename__ = 'clicks'
     id = Column(Integer, primary_key=True, index=True)
     ip = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
     user_agent = Column(String)
     link_id = Column(Integer, ForeignKey('links.id'))
+
+
+class IPInfo(Base):
+    __tablename__ = 'ip_info'
+    id = Column(Integer, primary_key=True, index=True)
+    ip = Column(String)
+    city = Column(String)
+    region = Column(String)
+    country = Column(String)
+    loc = Column(String)
+    org = Column(String)
+    postal = Column(String)
+    timezone = Column(String)
+    click_id = Column(Integer, ForeignKey('clicks.id'), unique=True)

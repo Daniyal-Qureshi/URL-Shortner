@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 from datetime import datetime
 
-class UniqueClick(BaseModel):
+class Click(BaseModel):
     id: int
     ip: str
     timestamp: datetime
@@ -119,5 +119,20 @@ class ShareTribeUserResponse(BaseModel):
     data: ShareTribeUser
     included: List[ShareTribeIncludedImage] | None = None
 
+    class Config:
+        from_attributes = True
+
+class IPInfo(BaseModel):
+    id: int
+    ip: str
+    city: str
+    region: str
+    country: str
+    loc: str
+    org: str
+    postal: str
+    timezone: str
+    click_id: int
+    
     class Config:
         from_attributes = True
