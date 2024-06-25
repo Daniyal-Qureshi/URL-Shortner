@@ -6,7 +6,6 @@ from fastapi import BackgroundTasks
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
 import requests
-from sqlalchemy import  func
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from utils.helper import *
@@ -76,9 +75,7 @@ async def authenticate(
         "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
         "Accept": "application/json",
     }
-    # response = requests.post(url, data=payload, headers=headers)
-
-    # return {username, password}
+    
     try:
         response = requests.post(url, data=payload, headers=headers)
         response.raise_for_status()
@@ -195,10 +192,7 @@ async def shorten_link(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
-    user = get_db_user(token=token, db=db)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
+    user = validate_user(token=token, db=db)
     link = db.query(LinkModel).filter(LinkModel.long_url == request.long_url, LinkModel.user_id == user.id).first()
     if link:
         return {
@@ -243,17 +237,8 @@ async def delete_bitlink(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
-    user = get_db_user(token=token, db=db)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    db_link = (
-        db.query(LinkModel)
-        .filter(LinkModel.id == link_id, LinkModel.owner == user)
-        .first()
-    )
-    if not db_link or db_link.expired:
-        raise HTTPException(status_code=404, detail="Link not found")
+    user = validate_user(token=token, db=db)
+    db_link = validate_link(link_id=link_id, db=db, user=user)
 
     db_link.expired = True
     db.commit()
@@ -268,20 +253,13 @@ async def get_unique_clicks(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
-    user = get_db_user(token=token, db=db)
-    db_link = (
-        db.query(LinkModel)
-        .filter(LinkModel.id == link_id, LinkModel.owner == user)
-        .first()
-    )
-    if not db_link or db_link.expired:
-        raise HTTPException(status_code=404, detail="Link not found")
-
+    user = validate_user(token=token, db=db)
+    validate_link(link_id=link_id, db=db, user=user)
+    
     clicks = db.query(ClickModel).filter(ClickModel.link_id == link_id).all()
     unique_combinations = {}
     unique_clicks_info = []
     
-    threshold_timestamp = datetime.now() - timedelta(hours=12)
 
     for click in clicks:
         combination = (click.ip, click.user_agent)
@@ -326,19 +304,10 @@ async def get_clicks(
     units: int = Query(-1),
     unit_reference: Optional[str] = None,
 ):
-    user = get_db_user(token=token, db=db)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    db_link = (
-        db.query(LinkModel)
-        .filter(LinkModel.id == link_id, LinkModel.owner == user)
-        .first()
-    )
-    if not db_link:
-        raise HTTPException(status_code=404, detail="Link not found")
-
-
+   
+    user = validate_user(token=token, db=db)
+    validate_link(link_id=link_id, db=db, user=user)
+    
     if unit == "minute":
         return clicks_by_minute(db)
     elif unit == "hour":
@@ -355,12 +324,7 @@ async def get_clicks(
 
 @router.get("/api/bitlinks")
 async def get_user_links(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    user = get_db_user(token=token, db=db)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-
+    user = validate_user(token=token, db=db)
     links = db.query(LinkModel).filter(LinkModel.owner == user).all()
     return links
 
@@ -371,23 +335,15 @@ async def get_clicks_by_country(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
-    user = get_db_user(token=token, db=db)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    db_link = (
-        db.query(LinkModel)
-        .filter(LinkModel.id == link_id, LinkModel.owner == user)
-        .first()
-    )
-    if not db_link:
-        raise HTTPException(status_code=404, detail="Link not found")
+   
+    user = validate_user(token=token, db=db)
+    validate_link(link_id=link_id, db=db, user=user)
 
     clicks = db.query(ClickModel).filter(ClickModel.link_id == link_id).all()
-    
+        
     country_clicks = {}
     for click in clicks:
-        country = get_ip_info(click.ip)["country"]
+        country = get_country_clicks(db, click.id)
         if country:
             if country in country_clicks:
                 country_clicks[country]["clicks"] += 1
@@ -411,17 +367,7 @@ async def get_bitlink(
     db: Session = Depends(get_db),
 ):
     user = get_db_user(token=token, db=db)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    db_link = (
-        db.query(LinkModel)
-        .filter(LinkModel.id == link_id, LinkModel.owner == user)
-        .first()
-    )
-    if not db_link:
-        raise HTTPException(status_code=404, detail="Link not found")
-
+    db_link =validate_link(link_id=link_id, db=db, user=user)
     return db_link
 
 

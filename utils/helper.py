@@ -4,9 +4,10 @@ from jose import JWTError, jwt
 from config.config import SECRET_KEY, ALGORITHM, oauth2_scheme, DATABASE_URL, SessionLocal
 import string
 import random
-from models.models import Link, User, IPInfo as IPInfoModel
+from models.models import Link, User, IPInfo as IPInfoModel, Link as LinkModel
 from sqlalchemy.orm import Session
 from config.config import logger
+from sqlalchemy import  func
 
 def get_ip_info_API(ip_address):
     url = f"https://ipinfo.io/{ip_address}/json"
@@ -63,6 +64,9 @@ def get_click_ip_info(click_id, db: Session):
         "timezone": ip_info.timezone,
     }
 
+def get_country_clicks(db: Session, click_id: int):
+    return db.query(IPInfoModel).filter(IPInfoModel.click_id == click_id).first().country
+
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -114,3 +118,21 @@ def create_unique_short_url(db: Session):
 
     # If we exceed the max_tries, increase the length of the URL
     return generate_short_url(url_length + 1)
+
+def validate_link(link_id, user,  db: Session):
+    db_link = (
+        db.query(LinkModel)
+        .filter(LinkModel.id == link_id, LinkModel.owner == user)
+        .first()
+    )
+    if not db_link:
+        raise HTTPException(status_code=404, detail="Link not found")
+    if db_link.expired:
+        raise HTTPException(status_code=400, detail="Link has expired")
+    return db_link
+ 
+def validate_user(token, db: Session):
+    user = get_db_user(token=token, db=db)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
