@@ -134,6 +134,14 @@ class IPInfo(BaseModel):
     postal: str
     timezone: str
     click_id: int
-    
+
+
+class ShortenLinkResponse(BaseModel):
+    link: str
+    title: str
+    long_url: str
+    id: int
+    created_at: datetime
+
     class Config:
         from_attributes = True

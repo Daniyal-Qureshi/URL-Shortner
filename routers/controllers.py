@@ -19,6 +19,7 @@ from schemas.Schemas import (
     ClicksSummary,
     ClicksSummaryByCountry,
     ShareTribeUserResponse,
+    ShortenLinkResponse,
 )
 from config.config import logger, SECRET_KEY, ALGORITHM, oauth2_scheme, REDIRECT_URL
 router = APIRouter()
@@ -188,7 +189,7 @@ async def get_user_links(
     )
     return links
 
-@router.post("/api/shorten")
+@router.post("/api/shorten", response_model=ShortenLinkResponse)
 async def shorten_link(
     request: ShortenLinkRequest,
     token: str = Depends(oauth2_scheme),
