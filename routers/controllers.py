@@ -44,12 +44,14 @@ async def redirect_to_long_url(
 
     long_url = link.long_url
     user_agent = request.headers.get("user-agent", "unknown")
-    ip_address = request.client.host
+    ip_address = request.headers.get("CF-Connecting-IP", None)
+    if not ip_address:
+        ip_address = request.client.host
     click = ClickModel(link_id=link.id, user_agent=user_agent, ip=ip_address)
     db.add(click)
     db.commit()
     background_tasks.add_task(write_ip_info, click.id, ip_address, db)
-    
+
     if not long_url.startswith(("http://", "https://")):
         long_url = "http://" + long_url
     return RedirectResponse(url=long_url)
@@ -245,8 +247,6 @@ async def delete_bitlink(
     return {"message": "Link successfully deleted"}
 
 
-
-
 @router.get("/api/bitlinks/{link_id}/clicks/unique", response_model=dict)
 async def get_unique_clicks(
     link_id: str,
@@ -291,7 +291,6 @@ async def get_unique_clicks(
         "unique_clicks": unique_clicks_info,
         "total_unique_clicks": len(unique_clicks_info)
     }
-
 
 
 @router.get("/api/bitlinks/{link_id}/clicks", response_model=ClicksSummary)
