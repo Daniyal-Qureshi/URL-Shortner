@@ -233,7 +233,7 @@ async def shorten_link(
 
 @router.delete("/api/bitlinks/{link_id}")
 async def delete_bitlink(
-    link_id: str,
+    link_id: int,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
@@ -360,7 +360,7 @@ async def get_clicks_by_country(
         "facet": "countries"
     }
 
-@router.get("/api/bitlinks/{link_id}",)
+@router.get("/api/bitlinks/{link_id}", response_model=LinkSchema)
 async def get_bitlink(
     link_id: str,
     token: str = Depends(oauth2_scheme),

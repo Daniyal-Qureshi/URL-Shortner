@@ -20,6 +20,7 @@ class Link(BaseModel):
     user_id: int
     created_at: datetime
     long_url: str
+    short_url: str
     title: str
 
     expired: bool
