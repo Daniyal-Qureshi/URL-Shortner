@@ -227,7 +227,7 @@ async def shorten_link(
             "link": link.bitlink, 
             "title": link.title,
             "long_url": link.long_url,
-            "id":link.short_url,
+            "id":link.id,
             "created_at": link.created_at
             }
     
@@ -255,7 +255,7 @@ async def shorten_link(
             "link": bitlink, 
             "title": title,
             "long_url": long_url,
-            "id":short_url,
+            "id":new_link.id,
             "created_at": datetime.now()
             }
 
