@@ -78,7 +78,7 @@ async def authenticate(
         "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
         "Accept": "application/json",
     }
-    
+
     try:
         response = requests.post(url, data=payload, headers=headers)
         response.raise_for_status()
@@ -89,7 +89,7 @@ async def authenticate(
         user = db.query(UserModel).filter(UserModel.username == username).first()
         if user:
             token_payload = {"username": username}
-            user.external_api_token = external_api_response["access_token"]
+            user.external_api_token = external_api_response["refresh_token"]
             db.commit()
             token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
             return {
@@ -101,7 +101,7 @@ async def authenticate(
         else:
             user = UserModel(
                 username=username,
-                external_api_token=external_api_response["access_token"],
+                external_api_token=external_api_response["refresh_token"],
             )
             db.add(user)
             db.commit()
@@ -141,7 +141,32 @@ async def get_user_details(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    access_token = user.external_api_token
+    refresh_token = user.external_api_token
+
+    url = "https://flex-api.sharetribe.com/v1/auth/token"
+    payload = {
+        "client_id": "dc31b12f-8294-4e24-b027-24ce590ffd16",
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "scope": "user",
+    }
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+        "Accept": "application/json",
+    }
+    access_token = ""
+    try:
+        response = requests.post(url, data=payload, headers=headers)
+        response.raise_for_status()
+        external_api_response = response.json()
+        access_token = external_api_response["access_token"]
+    except HTTPError as http_err:
+        raise HTTPException(
+            status_code=http_err.response.status_code, detail=http_err.response.text
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
     if not access_token:
         raise HTTPException(
             status_code=400, detail="User does not have an access token"
