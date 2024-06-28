@@ -78,6 +78,8 @@ services:
       - REDIRECT_URL=https://clicka.click
     env_file:
       - .env
+    volumes:
+      - ./main.db:/app/main.db
 
 networks:
   default:
