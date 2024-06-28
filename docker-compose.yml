@@ -57,7 +57,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./db.sqlite3:/app/db.sqlite3
+      - ./db.sqlite3:/src/db.sqlite3
 
   backend-prod:
     container_name: fastapi-backend-prod
@@ -79,7 +79,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./main.db:/app/main.db
+      - ./main.db:/src/main.db
 
 networks:
   default:
