@@ -342,15 +342,15 @@ async def get_clicks(
     validate_link(link_id=link_id, db=db, user=user)
     
     if unit == "minute":
-        return clicks_by_minute(db)
+        return clicks_by_minute(db, link_id)
     elif unit == "hour":
-        return clicks_by_hour(db)
+        return clicks_by_hour(db, link_id)
     elif unit == "day":
-        return clicks_by_day(db)
+        return clicks_by_day(db, link_id)
     elif unit == "week":
-        return clicks_by_week(db)
+        return clicks_by_week(db, link_id)
     elif unit == "month":
-        return clicks_by_month(db)
+        return clicks_by_month(db, link_id)
     else:
         raise HTTPException(status_code=400, detail="Invalid unit specified")
 

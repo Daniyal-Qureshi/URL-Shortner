@@ -30,7 +30,8 @@ class Click(Base):
     __tablename__ = 'clicks'
     id = Column(Integer, primary_key=True, index=True)
     ip = Column(String)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    # please don't use datetime.utcnow it is not working
+    timestamp = Column(DateTime, default=datetime.now) 
     user_agent = Column(String)
     link_id = Column(Integer, ForeignKey('links.id'))
 

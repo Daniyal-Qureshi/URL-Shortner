@@ -4,8 +4,8 @@ from fastapi import HTTPException
 from models.models import User as UserModel, Link as LinkModel, Click as ClickModel
 from sqlalchemy import  func
 
-def clicks_by_day(db):
-    start_date, end_date, query = get_day_data(db)
+def clicks_by_day(db, link_id):
+    start_date, end_date, query = get_day_data(db, link_id)
     daily_clicks = []
     
     current_date = end_date
@@ -33,8 +33,8 @@ def clicks_by_day(db):
 
     return result
 
-def clicks_by_month(db):
-    start_date, end_date, query = get_month_data(db)
+def clicks_by_month(db, link_id):
+    start_date, end_date, query = get_month_data(db, link_id)
     total_clicks = 0
     
     for date, clicks in query:
@@ -54,8 +54,8 @@ def clicks_by_month(db):
     return result
 
 
-def clicks_by_week(db):
-    start_date, end_date, query = get_week_data(db)
+def clicks_by_week(db, link_id):
+    start_date, end_date, query = get_week_data(db, link_id)
     weekly_clicks = []
     query_dict = {result[0]: result[1] for result in query}
 
@@ -85,8 +85,8 @@ def clicks_by_week(db):
     
     return result
 
-def clicks_by_hour(db):
-    start_date, end_date, query = get_hour_data(db)
+def clicks_by_hour(db, link_id):
+    start_date, end_date, query = get_hour_data(db, link_id)
     hourly_clicks = []
     query_dict = {result[0]: result[1] for result in query}
 
@@ -111,8 +111,8 @@ def clicks_by_hour(db):
     
     return result
 
-def clicks_by_minute(db):
-    start_date, end_date, query = get_last_60_minutes_data(db)
+def clicks_by_minute(db, link_id):
+    start_date, end_date, query = get_last_60_minutes_data(db, link_id)
     minute_clicks = []
     query_dict = {result[0]: result[1] for result in query}
 
@@ -139,20 +139,21 @@ def clicks_by_minute(db):
     
     return result
 
-def get_last_60_minutes_data(db):
+def get_last_60_minutes_data(db, link_id):
     end_date = datetime.now()
     start_date = end_date - timedelta(minutes=59)  # Last 60 minutes
-    query = last_60_minutes_query(db, start_date, end_date)
+    query = last_60_minutes_query(db, start_date, end_date, link_id)
     
     return start_date, end_date, query
 
-def last_60_minutes_query(db, start_date, end_date):
+def last_60_minutes_query(db, start_date, end_date, link_id):
     return db.query(
         func.strftime('%Y-%m-%dT%H:%M:00+0000', ClickModel.timestamp).label('timestamp'),
         func.count().label('total_clicks')
     ).filter(
         ClickModel.timestamp >= start_date,
-        ClickModel.timestamp <= end_date
+        ClickModel.timestamp <= end_date,
+        ClickModel.link_id == link_id
     ).group_by(
         func.strftime('%Y-%m-%dT%H:%M:00+0000', ClickModel.timestamp)
     ).order_by(
@@ -161,42 +162,43 @@ def last_60_minutes_query(db, start_date, end_date):
 
 
 
-def get_week_data(db):
+def get_week_data(db, link_id):
     end_date = datetime.now()
     start_date = end_date - timedelta(weeks=6)  
-    query = week_query(db, start_date, end_date)
+    query = week_query(db, start_date, end_date, link_id)
     return start_date, end_date, query
 
-def get_hour_data(db):
+def get_hour_data(db, link_id):
     end_date = datetime.now()
     start_date = end_date - timedelta(days=45)  # 45 days back
-    query = hour_query(db, start_date, end_date)
+    query = hour_query(db, start_date, end_date, link_id)
     
     return start_date, end_date, query
 
 
-def get_day_data(db):
+def get_day_data(db, link_id):
     end_date = datetime.now()
     start_date = end_date - timedelta(days=44)  
-    query = day_and_month_query(db, start_date, end_date)
+    query = day_and_month_query(db, start_date, end_date, link_id)
     
     return start_date, end_date, query
 
 
-def get_month_data(db):
+def get_month_data(db, link_id):
     end_date = datetime.now()
     start_date = datetime(end_date.year, end_date.month, 1)  
-    query = day_and_month_query(db, start_date, end_date)
+    query = day_and_month_query(db, start_date, end_date, link_id)
     return start_date, end_date, query
 
 
-def week_query(db, start_date, end_date):
+def week_query(db, start_date, end_date, link_id):
     return db.query(
         func.strftime('%Y-%m-%dT%H:%M:%S+0000', ClickModel.timestamp).label('timestamp'),
         func.count().label('total_clicks')
     ).filter(
         ClickModel.timestamp >= start_date,
-        ClickModel.timestamp <= end_date
+        ClickModel.timestamp <= end_date,
+        ClickModel.link_id == link_id
     ).group_by(
         func.strftime('%Y-%m-%dT%H:%M:%S+0000', ClickModel.timestamp)
     ).order_by(
@@ -204,25 +206,27 @@ def week_query(db, start_date, end_date):
     ).all()
 
 
-def day_and_month_query(db, start_date,end_date):
+def day_and_month_query(db, start_date,end_date, link_id):
     return db.query(
         func.date(ClickModel.timestamp).label('day'),
         func.count().label('total_clicks')
     ).filter(
         ClickModel.timestamp >= start_date,
-        ClickModel.timestamp <= end_date
+        ClickModel.timestamp <= end_date,
+        ClickModel.link_id == link_id
     ).group_by(
         func.date(ClickModel.timestamp)
     ).all()
 
 
-def hour_query(db, start_date, end_date):
+def hour_query(db, start_date, end_date, link_id):
     return db.query(
         func.strftime('%Y-%m-%d %H:00:00', ClickModel.timestamp).label('hour'),
         func.count().label('total_clicks')
     ).filter(
         ClickModel.timestamp >= start_date,
-        ClickModel.timestamp <= end_date
+        ClickModel.timestamp <= end_date,
+        ClickModel.link_id == link_id
     ).group_by(
         func.strftime('%Y-%m-%d %H:00:00', ClickModel.timestamp)
     ).order_by(
