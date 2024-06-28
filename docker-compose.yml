@@ -1,14 +1,77 @@
 version: "3"
 
 services:
-  backend:
-    container_name: fastapi-backend
-    restart: 'unless-stopped'
-    build: .
+  reverse-proxy:
+    image: traefik:v3.0
+    command:
+      # - "--api.insecure=true" # for debug interface on 8080
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      # - "--providers.file.directory=/configs/"
+      - "--entryPoints.web.address=:80"
+      # Access logs: Which request+status from which IP using which User-Agent?
+      - "--accesslog=true"
+      - "--accesslog.format=json"
+      - "--accesslog.fields.headers.defaultMode=drop"
+      - "--accesslog.fields.headers.names.User-Agent=keep"
+      - "--accesslog.fields.headers.names.Cf-Connecting-Ip=keep" # cloudflare headers
+      - "--accesslog.fields.names.ServiceName=drop"
+      - "--accesslog.fields.names.ClientHost=drop"
+      - "--accesslog.fields.names.ClientPort=drop"
+      - "--accesslog.fields.names.ClientUsername=drop"
+      - "--accesslog.fields.names.DownstreamContentSize=drop"
+      - "--accesslog.fields.names.Duration=drop"
+      - "--accesslog.fields.names.OriginContentSize=drop"
+      - "--accesslog.fields.names.OriginDuration=drop"
+      - "--accesslog.fields.names.Overhead=drop"
+      - "--accesslog.fields.names.RequestContentSize=drop"
+      - "--accesslog.fields.names.RequestCount=drop"
     ports:
       - "80:80"
+      # - "8080:8080" # for debug interface on 8080
+    networks:
+      - default
     volumes:
-      - ./main.db:/src/main.db
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+  backend-dev:
+    container_name: fastapi-backend-dev
+    restart: 'unless-stopped'
+    build: .
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.backend-dev-compress.compress=true"
+      - "traefik.http.routers.backend-dev.rule=Host(`dev-microsh-links-backend.microsh.com`) || Host(`dev.clicka.click`)"
+      - "traefik.http.routers.backend-dev.middlewares=backend-dev-compress"
+      - "traefik.http.routers.backend-dev.entrypoints=web"
+    environment:
+      - FORWARDED_ALLOW_IPS=*
+      - DATABASE_URL=sqlite:///db.sqlite3
+      - SHARETRIBE_CLIENT_ID=cd92a0bb-8893-4f50-8f92-2374787b79a1
+      - REDIRECT_URL=https://dev.clicka.click
+    env_file:
+      - .env
+    volumes:
+      - ./db.sqlite3:/app/db.sqlite3
+
+  backend-prod:
+    container_name: fastapi-backend-prod
+    restart: 'unless-stopped'
+    build: .
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.backend-prod-compress.compress=true"
+      - "traefik.http.routers.backend-prod.rule=Host(`microsh-links-backend.microsh.com`) || Host(`clicka.click`)"
+      - "traefik.http.routers.backend-prod.middlewares=backend-prod-compress"
+      - "traefik.http.routers.backend-prod.entrypoints=web"
+    environment:
+      - FORWARDED_ALLOW_IPS=*
+      - SHARETRIBE_CLIENT_ID=dc31b12f-8294-4e24-b027-24ce590ffd16
+      - REDIRECT_URL=https://clicka.click
+    env_file:
+      - .env
 
 networks:
   default:

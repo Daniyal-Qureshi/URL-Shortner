@@ -1,4 +1,3 @@
-
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,6 +11,10 @@ ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 REDIRECT_URL = os.getenv("REDIRECT_URL", "http://localhost:8000")
+SHARETRIBE_CLIENT_ID = os.getenv(
+    "SHARETRIBE_CLIENT_ID", "dc31b12f-8294-4e24-b027-24ce590ffd16"
+)
+
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

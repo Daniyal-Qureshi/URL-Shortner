@@ -21,7 +21,15 @@ from schemas.Schemas import (
     ShareTribeUserResponse,
     ShortenLinkResponse,
 )
-from config.config import logger, SECRET_KEY, ALGORITHM, oauth2_scheme, REDIRECT_URL
+from config.config import (
+    logger,
+    SECRET_KEY,
+    ALGORITHM,
+    oauth2_scheme,
+    REDIRECT_URL,
+    SHARETRIBE_CLIENT_ID,
+)
+
 router = APIRouter()
 
 class ShortenLinkRequest(BaseModel):
@@ -68,7 +76,7 @@ async def authenticate(
     password = formdata.password
     url = "https://flex-api.sharetribe.com/v1/auth/token"
     payload = {
-        "client_id": "dc31b12f-8294-4e24-b027-24ce590ffd16",
+        "client_id": SHARETRIBE_CLIENT_ID,
         "grant_type": "password",
         "username": username,
         "password": password,
@@ -145,7 +153,7 @@ async def get_user_details(
 
     url = "https://flex-api.sharetribe.com/v1/auth/token"
     payload = {
-        "client_id": "dc31b12f-8294-4e24-b027-24ce590ffd16",
+        "client_id": SHARETRIBE_CLIENT_ID,
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
         "scope": "user",
