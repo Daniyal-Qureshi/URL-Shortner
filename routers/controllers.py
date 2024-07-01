@@ -201,26 +201,6 @@ async def get_user_details(
     except KeyError:
         raise HTTPException(status_code=500, detail="Error fetching user details")
 
-@router.get("/api/users/{user_id}/links", response_model=List[LinkSchema])
-async def get_user_links(
-    user_id: int,
-    current_username: str = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    if user.username != current_username:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to view this user's links"
-        )
-    links = (
-        db.query(LinkModel)
-        .options(joinedload(LinkModel.owner))
-        .filter(LinkModel.owner.has(id=user_id))
-        .all()
-    )
-    return links
 
 @router.post("/api/shorten", response_model=ShortenLinkResponse)
 async def shorten_link(
@@ -356,9 +336,15 @@ async def get_clicks(
 
 
 @router.get("/api/bitlinks")
-async def get_user_links(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_links(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     user = validate_user(token=token, db=db)
-    links = db.query(LinkModel).filter(LinkModel.owner == user).all()
+    links = get_user_links(db, user)
+    return links
+
+@router.get("/api/bitlinks/active")
+async def get_links_active(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    user = validate_user(token=token, db=db)
+    links = get_user_links(db, user,expired=False)
     return links
 
 

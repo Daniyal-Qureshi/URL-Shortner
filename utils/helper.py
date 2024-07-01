@@ -136,3 +136,12 @@ def validate_user(token, db: Session):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+def get_user_links(db, user, expired=True):
+    query = db.query(LinkModel).filter(LinkModel.owner == user)
+    
+    if not expired:
+        query = query.filter(LinkModel.expired == expired)
+    
+    return query.all()
