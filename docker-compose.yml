@@ -74,6 +74,7 @@ services:
       - "traefik.port=80"
     environment:
       - FORWARDED_ALLOW_IPS=*
+      - DATABASE_URL=sqlite:///main.db
       - SHARETRIBE_CLIENT_ID=dc31b12f-8294-4e24-b027-24ce590ffd16
       - REDIRECT_URL=https://clicka.click
     env_file:
