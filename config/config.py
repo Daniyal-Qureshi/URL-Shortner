@@ -1,19 +1,17 @@
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
+from requests import Session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import logging
 import os
 
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/v1/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 SECRET_KEY = os.getenv("SECRET_KEY", "secret")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 REDIRECT_URL = os.getenv("REDIRECT_URL", "http://localhost:8000")
-SHARETRIBE_CLIENT_ID = os.getenv(
-    "SHARETRIBE_CLIENT_ID", "dc31b12f-8294-4e24-b027-24ce590ffd16"
-)
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -32,3 +30,10 @@ ch.setFormatter(formatter)
 
 logger.addHandler(fh)
 logger.addHandler(ch)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
