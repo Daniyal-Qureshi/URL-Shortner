@@ -10,7 +10,7 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
-    external_api_token = Column(String, index=True, unique=True)
+    password = Column(String)
     links = relationship("Link", back_populates="owner")
 
 
